@@ -252,14 +252,6 @@
 
   
   
-<!-- ===========================
-     Add these in your HTML
-=========================== -->
-<div class="card" style="text-align:center; margin-bottom:1.5rem;">
-  <button id="export-btn" class="btn">💾 Export Data</button>
-  <button id="import-btn" class="btn">📂 Import Data</button>
-  <input type="file" id="import-file" accept="application/json" hidden>
-</div>
 
   <!-- Previous HTML structure remains same until script section -->
   <div class="container">
@@ -365,6 +357,16 @@
 
     </main> 
   </div>
+
+  <!-- ===========================
+     Add these in your HTML
+=========================== -->
+<div class="card" style="text-align:center; margin-bottom:1.5rem;">
+  <button id="export-btn" class="btn">💾 Export Data</button>
+  <button id="import-btn" class="btn">📂 Import Data</button>
+  <input type="file" id="import-file" accept="application/json" hidden>
+</div>
+
   <script>
 // ——————————————
 // Utility: get local “YYYY-MM-DD” string
@@ -770,94 +772,6 @@ document.getElementById("next-week").addEventListener("click", () => {
   }, 60 * 1000);
 })();
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-// ===========================
-// Export / Import Module
-// ===========================
-(function() {
-  const exportBtn = document.getElementById('export-btn');
-  const importBtn = document.getElementById('import-btn');
-  const fileInput = document.getElementById('import-file');
-
-  // 1. EXPORT
-  exportBtn.addEventListener('click', () => {
-    const payload = {
-      entries: getEntries(),
-      targets: getWeeklyTargets(),
-    };
-    downloadJSON(payload, 'study-challenge-data.json');
-  });
-
-  // 2. IMPORT
-  importBtn.addEventListener('click', () => fileInput.click());
-  fileInput.addEventListener('change', handleImport);
-
-  // ——— Utility Functions ———
-  function downloadJSON(obj, filename) {
-    const blob = new Blob([JSON.stringify(obj, null, 2)], { type: 'application/json' });
-    const link = document.createElement('a');
-    link.href = URL.createObjectURL(blob);
-    link.download = filename;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(link.href);
-  }
-
-  function handleImport(evt) {
-    const file = evt.target.files[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => applyImport(reader.result);
-    reader.onerror = () => alert('⚠️ Error reading file.');
-    reader.readAsText(file);
-  }
-
-  function applyImport(text) {
-    let data;
-    try {
-      data = JSON.parse(text);
-      if (!Array.isArray(data.entries) || typeof data.targets !== 'object') {
-        throw new Error('JSON must have “entries” array and “targets” object.');
-      }
-    } catch (err) {
-      return alert(`⚠️ Import failed: ${err.message}`);
-    }
-
-    // Overwrite storage and refresh UI
-    saveEntries(data.entries);
-    saveWeeklyTargets(data.targets);
-    alert('✅ Data imported successfully!');
-    refreshAll();
-  }
-})();
-
-
-
-
-
-
-
-
-
-
-
-
-
-
     
 // ——————————————
 // Init
@@ -866,6 +780,84 @@ document.addEventListener("DOMContentLoaded", () => {
   refreshAll();
   setInterval(updateWeeklyCard, 1000);
 });
+
+
+
+
+
+    // Put this at the very end of your <script> block, after all function defs:
+document.addEventListener('DOMContentLoaded', () => {
+  console.log('📦 Export/Import module initializing…');
+
+  const exportBtn = document.getElementById('export-btn');
+  const importBtn = document.getElementById('import-btn');
+  const fileInput = document.getElementById('import-file');
+
+  if (!exportBtn || !importBtn || !fileInput) {
+    console.error('Export/Import elements not found!');
+    return;
+  }
+
+  // EXPORT handler
+  exportBtn.addEventListener('click', () => {
+    console.log('🖱️ Export button clicked');
+    const payload = { entries: getEntries(), targets: getWeeklyTargets() };
+    const jsonStr = JSON.stringify(payload, null, 2);
+    const filename = 'study-challenge-data.json';
+
+    // Try Web Share API first
+    if (navigator.canShare && navigator.canShare({ files: [ new File([jsonStr], filename, { type: 'application/json' }) ] })) {
+      const file = new File([jsonStr], filename, { type: 'application/json' });
+      navigator.share({ files: [file], title: 'Study Challenge Backup' })
+        .catch(err => {
+          console.warn('Share API failed, falling back to download:', err);
+          triggerDownload(jsonStr, filename);
+        });
+    } else {
+      // fallback to download link
+      triggerDownload(jsonStr, filename);
+    }
+  });
+
+  // IMPORT handlers
+  importBtn.addEventListener('click', () => fileInput.click());
+  fileInput.addEventListener('change', e => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const data = JSON.parse(reader.result);
+        if (!Array.isArray(data.entries) || typeof data.targets !== 'object') {
+          throw new Error('Invalid format');
+        }
+        saveEntries(data.entries);
+        saveWeeklyTargets(data.targets);
+        alert('✅ Data imported successfully!');
+        refreshAll();
+      } catch (err) {
+        alert('⚠️ Import failed: ' + err.message);
+      }
+    };
+    reader.onerror = () => alert('⚠️ Error reading file.');
+    reader.readAsText(file);
+  });
+
+  // Utility: create & click download link
+  function triggerDownload(text, filename) {
+    console.log('🚀 Triggering download for', filename);
+    const blob = new Blob([text], { type: 'application/json' });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href     = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+});
+
 </script>
 </body>
 </html>
