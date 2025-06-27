@@ -370,18 +370,6 @@
     </main> 
   </div>
 
-  <!-- ===========================
-     Add these in your HTML
-=========================== -->
-<div class="card" style="text-align:center; margin-bottom:1.5rem;">
-  <button id="export-btn" class="btn">💾 Export Data</button><br>
-  <button id="import-btn" class="btn">📂 Import Data</button>
-  <input type="file" id="import-file" accept="application/json" hidden>
-</div>
-<br><br>
-<button id="dump-storage-btn" class="btn-secondary">📂 Dump All Storage</button>
-
-
 
   <script>
 // ——————————————
@@ -798,99 +786,6 @@ document.addEventListener("DOMContentLoaded", () => {
 });
 
 
-
-
-
- function onImport(e) {
-  const file = e.target.files[0];
-  if (!file) return;
-  const reader = new FileReader();
-  
-  reader.onload = () => {
-    let payload;
-    try {
-      payload = JSON.parse(reader.result);
-      if (!Array.isArray(payload.entries) || typeof payload.targets !== 'object') {
-        throw new Error('JSON must include an “entries” array and “targets” object.');
-      }
-    } catch (err) {
-      return alert('⚠️ Import failed: ' + err.message);
-    }
-
-    // 1️⃣ Merge entries by date (summing hours+minutes if duplicates)
-    const existing = getEntries();
-    const mergedMap = {};
-
-    // helper: add an entry object {date, hours, minutes}
-    function addToMap(e) {
-      if (!mergedMap[e.date]) {
-        mergedMap[e.date] = { ...e };
-      } else {
-        mergedMap[e.date].hours   += e.hours   || 0;
-        mergedMap[e.date].minutes += e.minutes || 0;
-        // carry over minutes > 60
-        if (mergedMap[e.date].minutes >= 60) {
-          mergedMap[e.date].hours   += Math.floor(mergedMap[e.date].minutes / 60);
-          mergedMap[e.date].minutes %= 60;
-        }
-      }
-    }
-
-    existing.forEach(addToMap);
-    payload.entries.forEach(addToMap);
-
-    const mergedEntries = Object.values(mergedMap)
-      // optional: sort by date ascending or descending
-      .sort((a, b) => new Date(b.date) - new Date(a.date));
-
-    saveEntries(mergedEntries);
-
-    // 2️⃣ Merge targets (payload overrides only those weeks it contains)
-    const existingTargets = getWeeklyTargets(); // returns object mapping monday→{target,changes}
-    const rawTargets     = JSON.parse(localStorage.getItem(TARGETS_KEY) || '{}');
-
-    Object.keys(payload.targets).forEach(weekKey => {
-      rawTargets[weekKey] = payload.targets[weekKey];
-    });
-    saveWeeklyTargets(rawTargets);
-
-    alert('✅ Imported and merged successfully!');
-    refreshAll();
-  };
-
-  reader.onerror = () => {
-    alert('⚠️ Error reading file.');
-  };
-
-  reader.readAsText(file);
-}
-
-document.getElementById('dump-storage-btn').addEventListener('click', () => {
-  // Build an object of all storage keys, but just show the first 200 chars of each
-  const dump = {};
-  for (let i = 0; i < localStorage.length; i++) {
-    const key = localStorage.key(i);
-    const val = localStorage.getItem(key);
-    dump[key] = {
-      length: val.length,
-      preview: val.slice(0, 200) + (val.length > 200 ? '…' : '')
-    };
-  }
-
-  // Show the result in a full‑screen overlay textarea
-  const overlay = document.createElement('div');
-  overlay.style = `
-    position:fixed; top:0; left:0; width:100%; height:100%;
-    background:rgba(0,0,0,0.8); color:#fff; padding:1rem; z-index:9999;
-    overflow:auto; font-family:monospace; font-size:0.9rem;
-  `;
-  const pre = document.createElement('pre');
-  pre.textContent = JSON.stringify(dump, null, 2);
-  overlay.appendChild(pre);
-  overlay.addEventListener('click', () => document.body.removeChild(overlay));
-  document.body.appendChild(overlay);
-  alert('📋 All storage keys shown. Click anywhere to close.');
-});
 
 
 </script>
