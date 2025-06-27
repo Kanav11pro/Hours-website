@@ -785,127 +785,70 @@ document.addEventListener("DOMContentLoaded", () => {
 
 
 
-    document.addEventListener('DOMContentLoaded', () => {
-  console.log('📦 Export/Import module initializing…');
-
-  const exportBtn = document.getElementById('export-btn');
-  const importBtn = document.getElementById('import-btn');
-  const fileInput = document.getElementById('import-file');
-
-  if (!exportBtn || !importBtn || !fileInput) {
-    console.error('Export/Import elements not found!');
-    return;
-  }
-
-  exportBtn.addEventListener('click', onExport);
-  importBtn.addEventListener('click', () => fileInput.click());
-  fileInput.addEventListener('change', onImport);
-
-  // ——— EXPORT FLOW ——————————————————
-
-  async function onExport() {
-    console.log('🖱️ Export clicked');
-    const data = {
-      entries: getEntries(),
-      targets: getWeeklyTargets(),
-    };
-    const jsonStr = JSON.stringify(data, null, 2);
-    const filename = 'study-challenge-data.json';
-
-    // 1) Share as a file
-    if (navigator.canShare && window.File) {
-      const file = new File([jsonStr], filename, { type: 'application/json' });
-      if (navigator.canShare({ files: [file] })) {
-        try {
-          await navigator.share({ files: [file], title: 'Study Master Backup' });
-          return;
-        } catch (err) {
-          console.warn('Share(files) failed:', err);
-        }
-      }
-    }
-
-    // 2) Share as plain text (fallback)
-    if (navigator.share) {
-      try {
-        await navigator.share({ text: jsonStr, title: 'Study Master Backup' });
-        return;
-      } catch (err) {
-        console.warn('Share(text) failed:', err);
-      }
-    }
-
-    // 3) Attempt classic <a download>
+ function onImport(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  
+  reader.onload = () => {
+    let payload;
     try {
-      triggerDownload(jsonStr, filename);
-      return;
+      payload = JSON.parse(reader.result);
+      if (!Array.isArray(payload.entries) || typeof payload.targets !== 'object') {
+        throw new Error('JSON must include an “entries” array and “targets” object.');
+      }
     } catch (err) {
-      console.warn('downloadLink failed:', err);
+      return alert('⚠️ Import failed: ' + err.message);
     }
 
-    // 4) Ultimate fallback: show JSON in a textarea for manual copy
-    promptCopy(jsonStr);
-  }
+    // 1️⃣ Merge entries by date (summing hours+minutes if duplicates)
+    const existing = getEntries();
+    const mergedMap = {};
 
-  function triggerDownload(text, filename) {
-    console.log('🚀 Triggering download for', filename);
-    const blob = new Blob([text], { type: 'application/json' });
-    const url  = URL.createObjectURL(blob);
-    const a    = document.createElement('a');
-    a.href     = url;
-    a.download = filename;
-    // some WebViews block clicking programmatically; try adding to DOM
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  }
-
-  function promptCopy(text) {
-    console.warn('📋 Fallback: showing JSON for manual copy');
-    const overlay = document.createElement('div');
-    overlay.style = `
-      position:fixed; top:0; left:0; width:100%; height:100%;
-      background:rgba(0,0,0,0.6); display:flex; align-items:center;
-      justify-content:center; padding:1rem; z-index:9999;
-    `;
-    const box = document.createElement('textarea');
-    box.readOnly = true;
-    box.value = text;
-    box.style = `
-      width:100%; max-width:400px; height:70vh; padding:0.5rem;
-      font-size:0.9rem; line-height:1.2;`;
-    overlay.appendChild(box);
-    overlay.addEventListener('click', () => document.body.removeChild(overlay));
-    document.body.appendChild(overlay);
-    box.select();
-    alert('⚠️ Unable to download. Tap “Copy” or long‑press to copy the JSON, then tap anywhere to close.');
-  }
-
-  // ——— IMPORT FLOW ——————————————————
-
-  function onImport(e) {
-    const file = e.target.files[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      try {
-        const obj = JSON.parse(reader.result);
-        if (!Array.isArray(obj.entries) || typeof obj.targets !== 'object') {
-          throw new Error('JSON must include “entries” array and “targets” object.');
+    // helper: add an entry object {date, hours, minutes}
+    function addToMap(e) {
+      if (!mergedMap[e.date]) {
+        mergedMap[e.date] = { ...e };
+      } else {
+        mergedMap[e.date].hours   += e.hours   || 0;
+        mergedMap[e.date].minutes += e.minutes || 0;
+        // carry over minutes > 60
+        if (mergedMap[e.date].minutes >= 60) {
+          mergedMap[e.date].hours   += Math.floor(mergedMap[e.date].minutes / 60);
+          mergedMap[e.date].minutes %= 60;
         }
-        saveEntries(obj.entries);
-        saveWeeklyTargets(obj.targets);
-        alert('✅ Data imported successfully!');
-        refreshAll();
-      } catch (err) {
-        alert('⚠️ Import failed: ' + err.message);
       }
-    };
-    reader.onerror = () => alert('⚠️ Error reading file.');
-    reader.readAsText(file);
-  }
-});
+    }
+
+    existing.forEach(addToMap);
+    payload.entries.forEach(addToMap);
+
+    const mergedEntries = Object.values(mergedMap)
+      // optional: sort by date ascending or descending
+      .sort((a, b) => new Date(b.date) - new Date(a.date));
+
+    saveEntries(mergedEntries);
+
+    // 2️⃣ Merge targets (payload overrides only those weeks it contains)
+    const existingTargets = getWeeklyTargets(); // returns object mapping monday→{target,changes}
+    const rawTargets     = JSON.parse(localStorage.getItem(TARGETS_KEY) || '{}');
+
+    Object.keys(payload.targets).forEach(weekKey => {
+      rawTargets[weekKey] = payload.targets[weekKey];
+    });
+    saveWeeklyTargets(rawTargets);
+
+    alert('✅ Imported and merged successfully!');
+    refreshAll();
+  };
+
+  reader.onerror = () => {
+    alert('⚠️ Error reading file.');
+  };
+
+  reader.readAsText(file);
+}
+
 
 
 </script>
