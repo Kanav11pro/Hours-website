@@ -231,9 +231,36 @@
     /* Animations */
     @keyframes fadeInUp { from{opacity:0;transform:translateY(20px);} to{opacity:1;transform:translateY(0);} }
     @keyframes slideDown { from{opacity:0;transform:translateY(-30px);} to{opacity:1;transform:translateY(0);} }
+
+    /* add these to your existing <style> */
+.btn {
+  background: var(--primary-color);
+  color: #fff;
+  border: none;
+  padding: 0.6rem 1.2rem;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.3s, transform 0.2s;
+  margin: 0 0.5rem;
+}
+.btn:hover { background: var(--secondary-color); transform: translateY(-2px); }
+
   </style>
 </head>
 <body>
+
+  
+  
+<!-- ===========================
+     Add these in your HTML
+=========================== -->
+<div class="card" style="text-align:center; margin-bottom:1.5rem;">
+  <button id="export-btn" class="btn">💾 Export Data</button>
+  <button id="import-btn" class="btn">📂 Import Data</button>
+  <input type="file" id="import-file" accept="application/json" hidden>
+</div>
+
   <!-- Previous HTML structure remains same until script section -->
   <div class="container">
    <header>
@@ -743,6 +770,95 @@ document.getElementById("next-week").addEventListener("click", () => {
   }, 60 * 1000);
 })();
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+// ===========================
+// Export / Import Module
+// ===========================
+(function() {
+  const exportBtn = document.getElementById('export-btn');
+  const importBtn = document.getElementById('import-btn');
+  const fileInput = document.getElementById('import-file');
+
+  // 1. EXPORT
+  exportBtn.addEventListener('click', () => {
+    const payload = {
+      entries: getEntries(),
+      targets: getWeeklyTargets(),
+    };
+    downloadJSON(payload, 'study-challenge-data.json');
+  });
+
+  // 2. IMPORT
+  importBtn.addEventListener('click', () => fileInput.click());
+  fileInput.addEventListener('change', handleImport);
+
+  // ——— Utility Functions ———
+  function downloadJSON(obj, filename) {
+    const blob = new Blob([JSON.stringify(obj, null, 2)], { type: 'application/json' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(link.href);
+  }
+
+  function handleImport(evt) {
+    const file = evt.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => applyImport(reader.result);
+    reader.onerror = () => alert('⚠️ Error reading file.');
+    reader.readAsText(file);
+  }
+
+  function applyImport(text) {
+    let data;
+    try {
+      data = JSON.parse(text);
+      if (!Array.isArray(data.entries) || typeof data.targets !== 'object') {
+        throw new Error('JSON must have “entries” array and “targets” object.');
+      }
+    } catch (err) {
+      return alert(`⚠️ Import failed: ${err.message}`);
+    }
+
+    // Overwrite storage and refresh UI
+    saveEntries(data.entries);
+    saveWeeklyTargets(data.targets);
+    alert('✅ Data imported successfully!');
+    refreshAll();
+  }
+})();
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    
 // ——————————————
 // Init
 document.addEventListener("DOMContentLoaded", () => {
