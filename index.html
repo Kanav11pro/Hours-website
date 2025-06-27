@@ -379,7 +379,8 @@
   <input type="file" id="import-file" accept="application/json" hidden>
 </div>
 <br><br>
-<button id="show-raw-btn" class="btn-secondary">🐛 Show Raw Data</button>
+<button id="dump-storage-btn" class="btn-secondary">📂 Dump All Storage</button>
+
 
 
   <script>
@@ -864,27 +865,31 @@ document.addEventListener("DOMContentLoaded", () => {
   reader.readAsText(file);
 }
 
+document.getElementById('dump-storage-btn').addEventListener('click', () => {
+  // Build an object of all storage keys, but just show the first 200 chars of each
+  const dump = {};
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    const val = localStorage.getItem(key);
+    dump[key] = {
+      length: val.length,
+      preview: val.slice(0, 200) + (val.length > 200 ? '…' : '')
+    };
+  }
 
-    document.getElementById('show-raw-btn').addEventListener('click', () => {
-  const raw = localStorage.getItem(STORAGE_KEY) || '[]';
+  // Show the result in a full‑screen overlay textarea
   const overlay = document.createElement('div');
   overlay.style = `
     position:fixed; top:0; left:0; width:100%; height:100%;
-    background:rgba(0,0,0,0.7); display:flex; align-items:center;
-    justify-content:center; padding:1rem; z-index:9999;
+    background:rgba(0,0,0,0.8); color:#fff; padding:1rem; z-index:9999;
+    overflow:auto; font-family:monospace; font-size:0.9rem;
   `;
-  const ta = document.createElement('textarea');
-  ta.readOnly = true;
-  ta.value = raw;
-  ta.style = `
-    width:100%; max-width:500px; height:80vh;
-    padding:1rem; font-size:0.9rem; line-height:1.2;
-  `;
-  overlay.appendChild(ta);
+  const pre = document.createElement('pre');
+  pre.textContent = JSON.stringify(dump, null, 2);
+  overlay.appendChild(pre);
   overlay.addEventListener('click', () => document.body.removeChild(overlay));
   document.body.appendChild(overlay);
-  ta.select();
-  alert('📋 Long‑press (or Ctrl+C) to copy your raw data. Tap outside to close.');
+  alert('📋 All storage keys shown. Click anywhere to close.');
 });
 
 
