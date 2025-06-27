@@ -10,6 +10,18 @@
   <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.5.1/dist/confetti.browser.min.js"></script>
 
   <style>
+.btn-secondary {
+  background: var(--accent-color);
+  color: #fff;
+  border: none;
+  padding: 0.6rem 1.2rem;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.3s, transform 0.2s;
+  margin: 0 0.5rem;
+}
+.btn-secondary:hover { background: #059669; transform: translateY(-2px); }
 
 
   /* Header */
@@ -362,10 +374,13 @@
      Add these in your HTML
 =========================== -->
 <div class="card" style="text-align:center; margin-bottom:1.5rem;">
-  <button id="export-btn" class="btn">💾 Export Data</button>
+  <button id="export-btn" class="btn">💾 Export Data</button><br>
   <button id="import-btn" class="btn">📂 Import Data</button>
   <input type="file" id="import-file" accept="application/json" hidden>
 </div>
+<br><br>
+<button id="show-raw-btn" class="btn-secondary">🐛 Show Raw Data</button>
+
 
   <script>
 // ——————————————
@@ -849,6 +864,28 @@ document.addEventListener("DOMContentLoaded", () => {
   reader.readAsText(file);
 }
 
+
+    document.getElementById('show-raw-btn').addEventListener('click', () => {
+  const raw = localStorage.getItem(STORAGE_KEY) || '[]';
+  const overlay = document.createElement('div');
+  overlay.style = `
+    position:fixed; top:0; left:0; width:100%; height:100%;
+    background:rgba(0,0,0,0.7); display:flex; align-items:center;
+    justify-content:center; padding:1rem; z-index:9999;
+  `;
+  const ta = document.createElement('textarea');
+  ta.readOnly = true;
+  ta.value = raw;
+  ta.style = `
+    width:100%; max-width:500px; height:80vh;
+    padding:1rem; font-size:0.9rem; line-height:1.2;
+  `;
+  overlay.appendChild(ta);
+  overlay.addEventListener('click', () => document.body.removeChild(overlay));
+  document.body.appendChild(overlay);
+  ta.select();
+  alert('📋 Long‑press (or Ctrl+C) to copy your raw data. Tap outside to close.');
+});
 
 
 </script>
