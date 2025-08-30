@@ -365,6 +365,22 @@
         <div id="previous-weeks-container"></div>
       </section>
 
+<!-- Backup & Restore -->
+<section id="backup-restore" class="card">
+  <h2>📦 Backup & Restore</h2>
+  <div style="display:flex; gap:0.5rem; flex-wrap:wrap; margin-bottom:0.5rem;">
+    <button id="export-btn" class="btn">⬇️ Export Data</button>
+    <button id="import-btn" class="btn">⬆️ Import Data</button>
+  </div>
+  <textarea id="backup-area" rows="6" placeholder="Exported JSON will appear here, or paste JSON here to import..." 
+    style="width:100%; padding:0.5rem; border:1px solid #ccc; border-radius:8px; font-size:0.9rem;"></textarea>
+</section>
+
+
+
+
+
+
     </main> 
   </div>
 
@@ -782,6 +798,47 @@ document.addEventListener("DOMContentLoaded", () => {
   refreshAll();
   setInterval(updateWeeklyCard, 1000);
 });
+
+
+
+
+// ——————————————
+// Backup & Restore
+document.getElementById("export-btn").addEventListener("click", () => {
+  const exportData = {
+    sessions: getEntries(),
+    targets: getWeeklyTargets()
+  };
+  const jsonStr = JSON.stringify(exportData, null, 2);
+  const area = document.getElementById("backup-area");
+  area.value = jsonStr;
+
+  // copy to clipboard
+  navigator.clipboard.writeText(jsonStr).then(() => {
+    alert("✅ Data exported & copied to clipboard!");
+  });
+});
+
+document.getElementById("import-btn").addEventListener("click", () => {
+  const area = document.getElementById("backup-area");
+  let data;
+  try {
+    data = JSON.parse(area.value);
+  } catch (e) {
+    return alert("❌ Invalid JSON. Please check your pasted text.");
+  }
+  if (!data.sessions || !data.targets) {
+    return alert("❌ JSON must include both sessions and targets.");
+  }
+  if (!confirm("⚠️ This will replace all your existing data. Continue?")) return;
+
+  saveEntries(data.sessions);
+  saveWeeklyTargets(data.targets);
+  refreshAll();
+  alert("✅ Data imported successfully!");
+});
+
+
 
 
 
